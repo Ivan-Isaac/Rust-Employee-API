@@ -1,2 +1,5 @@
-run server
-cargo watch -q -c -w src/ -x run
+To avoid manually restarting the server after every change to the source code, you can use Cargo Watch, a tool that watches the source code and automatically rebuilds the project. 
+
+Install it with 'cargo install cargo-watch'.
+
+Once you have Cargo Watch installed, use the command 'cargo watch -q -c -w src/ -x run' to start the Axum HTTP server.
