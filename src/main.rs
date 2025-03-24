@@ -1,4 +1,3 @@
-// src/main.rs
 mod db;
 mod employees;
 mod departments;
@@ -6,25 +5,63 @@ mod dept_manager;
 mod dept_emp;
 mod titles;
 mod salaries;
+mod auth; 
 
 use std::sync::Arc;
 use axum::{
-    Router,
+    extract::FromRequestParts,
     http::{
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-        HeaderValue, Method,
+        HeaderValue, Method, StatusCode,
     },
+    http::request::Parts, 
+    Router,
+    Json, // Add Json for returning error messages
 };
+use futures::future::ready;
 use dotenv::dotenv;
 use tower_http::cors::CorsLayer;
-
+use crate::auth::{Claims, validate_jwt}; 
 use crate::db::AppState;
+use serde_json::{json, Value}; // Add Value for returning json errors.
+use std::future::Future; // Add future trait.
+
 use crate::employees::routes as employee_routes;
 use crate::departments::routes as department_routes;
 use crate::dept_manager::routes as dept_manager_routes;
 use crate::dept_emp::routes as dept_emp_routes;
 use crate::titles::routes as titles_routes;
 use crate::salaries::routes as salaries_routes;
+
+impl<S> FromRequestParts<S> for Claims
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<Value>);
+
+    fn from_request_parts(
+        parts: &mut Parts,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        ready(
+            parts.headers.get(axum::http::header::AUTHORIZATION)
+                .and_then(|header| header.to_str().ok())
+                .filter(|header_str| header_str.starts_with("Bearer "))
+                .map(|header_str| header_str.trim_start_matches("Bearer "))
+                .map_or(Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "Unauthorized"})))), |token| {
+                    match validate_jwt(token) {
+                        Ok(claims) => Ok(claims),
+                        Err(e) => {
+                            match e.kind() {
+                                jsonwebtoken::errors::ErrorKind::ExpiredSignature => Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "Token expired"})))),
+                                _ => Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "Unauthorized"})))),
+                            }
+                        }
+                    }
+                }),
+        )
+    }
+}
 
 #[tokio::main]
 async fn main() {
