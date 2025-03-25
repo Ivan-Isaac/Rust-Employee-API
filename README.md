@@ -6,6 +6,8 @@ Also features JWT authentication (secret key stored at Environment Variables) an
 To be added:
 - SODIUM encryption of json output, decryption of said data from PHP layer.
 
+Currently, the code includes encryption, but will be removed for testing in this branch.
+
 To run the API, these Pre-requisites are needed:
 1. XAMPP software with MySQL and database initialized. Database should run before launching the API
 Database can be generated from included employee.sql file.
