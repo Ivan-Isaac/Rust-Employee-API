@@ -3,6 +3,7 @@ use axum::{extract::{Path, State}, http::StatusCode, Json};
 use std::sync::Arc;
 use crate::db::AppState;
 use crate::dept_emp::models::DeptEmp;
+use crate::sodium::sodium_crypto::{encrypt_json, get_key};
 use crate::auth::Claims;
 
 // Create DeptEmp
@@ -10,7 +11,7 @@ pub async fn create_dept_emp_handler(
     _claims: Claims,
     State(state): State<Arc<AppState>>,
     Json(new_dept_emp): Json<DeptEmp>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+) -> Result<Json<String>, StatusCode> {
     let query = "INSERT INTO dept_emp (emp_no, dept_no, from_date, to_date) VALUES (?, ?, ?, ?)";
     let result = sqlx::query(query)
         .bind(new_dept_emp.emp_no)
@@ -23,7 +24,9 @@ pub async fn create_dept_emp_handler(
     match result {
         Ok(_) => {
             let json_data = serde_json::to_value(new_dept_emp).unwrap();
-            Ok(Json(json_data))
+            let key = get_key();
+            let encrypted_data = encrypt_json(&json_data, &key).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            Ok(Json(encrypted_data))
         }
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -33,8 +36,8 @@ pub async fn create_dept_emp_handler(
 pub async fn dept_emp_list_handler(
     _claims: Claims,
     State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    let query = "SELECT * FROM dept_emp";
+) -> Result<Json<String>, StatusCode> {
+    let query = "SELECT * FROM dept_emp LIMIT 10";
     let dept_emps = sqlx::query_as::<_, DeptEmp>(query)
         .fetch_all(&state.db)
         .await;
@@ -42,7 +45,9 @@ pub async fn dept_emp_list_handler(
     match dept_emps {
         Ok(data) => {
             let json_data = serde_json::to_value(data).unwrap();
-            Ok(Json(json_data))
+            let key = get_key();
+            let encrypted_data = encrypt_json(&json_data, &key).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            Ok(Json(encrypted_data))
         }
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -53,7 +58,7 @@ pub async fn get_dept_emp_handler(
     _claims: Claims,
     State(state): State<Arc<AppState>>,
     Path((emp_no, dept_no)): Path<(i32, String)>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+) -> Result<Json<String>, StatusCode> {
     let query = "SELECT * FROM dept_emp WHERE emp_no = ? AND dept_no = ?";
     let dept_emp = sqlx::query_as::<_, DeptEmp>(query)
         .bind(emp_no)
@@ -64,7 +69,9 @@ pub async fn get_dept_emp_handler(
     match dept_emp {
         Ok(data) => {
             let json_data = serde_json::to_value(data).unwrap();
-            Ok(Json(json_data))
+            let key = get_key();
+            let encrypted_data = encrypt_json(&json_data, &key).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            Ok(Json(encrypted_data))
         }
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
@@ -76,7 +83,7 @@ pub async fn edit_dept_emp_handler(
     State(state): State<Arc<AppState>>,
     Path((emp_no, dept_no)): Path<(i32, String)>,
     Json(updated_dept_emp): Json<DeptEmp>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+) -> Result<Json<String>, StatusCode> {
     let query = "UPDATE dept_emp SET from_date = ?, to_date = ? WHERE emp_no = ? AND dept_no = ?";
     let result = sqlx::query(query)
         .bind(&updated_dept_emp.from_date)
@@ -89,7 +96,9 @@ pub async fn edit_dept_emp_handler(
     match result {
         Ok(_) => {
             let json_data = serde_json::to_value(updated_dept_emp).unwrap();
-            Ok(Json(json_data))
+            let key = get_key();
+            let encrypted_data = encrypt_json(&json_data, &key).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            Ok(Json(encrypted_data))
         }
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
